@@ -405,9 +405,11 @@ class ProductController extends Controller
 
         //Generates the combinations of customer choice options
         $combinations = Combinations::makeCombinations($options);
+
         
-        // Check if this is a Droploo variable product (has b_product_id and no combinations)
-        $isDroplooVariableProduct = $request->has('b_product_id') && $request->b_product_id != null && count($combinations[0]) == 0;
+        // Check if this is a Droploo variable product (has b_product_id)
+        $isDroplooProduct = $request->has('b_product_id') && $request->b_product_id != null;
+        $isVariableFromApi = $request->has('is_variable') ? (int)$request->is_variable : 0;
         
         if(count($combinations[0]) > 0){
             $product->variant_product = 1;
@@ -443,8 +445,8 @@ class ProductController extends Controller
                 $product_stock->save();
             }
         }
-        elseif($isDroplooVariableProduct) {
-            // Handle Droploo variable products from product_images
+        elseif($isDroplooProduct && $isVariableFromApi == 1) {
+            // Handle Droploo variable products from product_images (is_variable == 1)
             $product->variant_product = 1;
             
             // Get all variant fields from request
@@ -456,7 +458,10 @@ class ProductController extends Controller
                 }
             }
             
-            foreach($variantFields as $str) {
+            foreach($variantFields as $field_str) {
+                // Sanitize field name back to variant string (reverse the underscore substitution)
+                $str = str_replace('_', ' ', $field_str);
+                
                 $product_stock = ProductStock::where('product_id', $product->id)->where('variant', $str)->first();
                 if($product_stock == null){
                     $product_stock = new ProductStock;
@@ -464,15 +469,16 @@ class ProductController extends Controller
                 }
                 
                 $product_stock->variant = $str;
-                $product_stock->price = $request['price_'.$str] ?? 0;
-                $product_stock->sku = $request['sku_'.$str] ?? '';
-                $product_stock->qty = $request['qty_'.$str] ?? 0;
-                $product_stock->image = $request['img_'.$str] ?? null;
+                $product_stock->price = $request['price_'.$field_str] ?? 0;
+                $product_stock->sku = $request['sku_'.$field_str] ?? '';
+                $product_stock->qty = $request['qty_'.$field_str] ?? 0;
+                $product_stock->image = $request['img_'.$field_str] ?? null;
                 
                 $product_stock->save();
             }
         }
         else{
+            // For non-variable products or Droploo products with is_variable == 0
             $product_stock              = new ProductStock;
             $product_stock->product_id  = $product->id;
             $product_stock->variant     = '';
@@ -484,13 +490,6 @@ class ProductController extends Controller
         //combinations end
 
 	    $product->save();
-
-        // Product Translations
-        $product_translation = ProductTranslation::firstOrNew(['lang' => env('DEFAULT_LANGUAGE'), 'product_id' => $product->id]);
-        $product_translation->name = $request->name;
-        $product_translation->unit = $request->unit;
-        $product_translation->description = $request->description;
-        $product_translation->save();
 
         flash(translate('Product has been inserted successfully'))->success();
 
@@ -638,6 +637,7 @@ class ProductController extends Controller
 
             // Pass product_images for variant display
             $product_images = isset($product['product_images']) ? $product['product_images'] : [];
+
 
             return view('backend.product.products.droploo-product-create', compact('product','categories', 'product_images'));
         }
@@ -935,7 +935,10 @@ class ProductController extends Controller
                 }
             }
             
-            foreach($variantFields as $str) {
+            foreach($variantFields as $field_str) {
+                // Sanitize field name back to variant string (reverse the underscore substitution)
+                $str = str_replace('_', ' ', $field_str);
+                
                 $product_stock = ProductStock::where('product_id', $product->id)->where('variant', $str)->first();
                 if($product_stock == null){
                     $product_stock = new ProductStock;
@@ -943,13 +946,13 @@ class ProductController extends Controller
                 }
                 
                 $product_stock->variant = $str;
-                $product_stock->price = $request['price_'.$str] ?? 0;
-                $product_stock->sku = $request['sku_'.$str] ?? '';
-                $product_stock->qty = $request['qty_'.$str] ?? 0;
-                $product_stock->image = $request['img_'.$str] ?? null;
+                $product_stock->price = $request['price_'.$field_str] ?? 0;
+                $product_stock->sku = $request['sku_'.$field_str] ?? '';
+                $product_stock->qty = $request['qty_'.$field_str] ?? 0;
+                $product_stock->image = $request['img_'.$field_str] ?? null;
                 // Add wholesale price if available
-                if(isset($request['wholesale_price_'.$str])) {
-                    $product_stock->wholesale_price = $request['wholesale_price_'.$str];
+                if(isset($request['wholesale_price_'.$field_str])) {
+                    $product_stock->wholesale_price = $request['wholesale_price_'.$field_str];
                 }
                 
                 $product_stock->save();

@@ -224,15 +224,6 @@
                         <h5 class="mb-0 h6">{{translate('Product price + stock')}}</h5>
                     </div>
                     <div class="card-body">
-                        <!-- Conditional wholesale price for b_product_id -->
-                        @if(isset($product->b_product_id))
-                        <div class="form-group row">
-                            <label class="col-md-3 col-from-label">{{translate('Wholesale price')}} <span class="text-danger">*</span></label>
-                            <div class="col-md-6">
-                                <input type="number" lang="en" min="0" value="{{ $product->purchase_price }}" step="0.01" placeholder="{{ translate('Wholesale price') }}" name="purchase_price" class="form-control" readonly>
-                            </div>
-                        </div>
-                        @endif
                         
                         <div class="form-group row">
                             <label class="col-md-3 col-from-label">{{translate('Unit price')}}</label>
@@ -296,6 +287,7 @@
                             </div>
                         </div>
                         
+                        @if ($product->variant_product == 1)
                         <!-- SKU Combination Section -->
                         <div class="form-group row">
                             <label class="col-md-3 col-from-label">{{translate('Variants')}}</label>
@@ -305,6 +297,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </div>
                 <div class="card">
@@ -459,12 +452,17 @@
            success: function(data){
                $('#sku_combination').html(data);
                AIZ.plugins.fooTable();
-               // Check if we have combinations, if not show the quantity field
-               if (data.length > 1 && $(data).find('.variant').length > 0) {
+               AIZ.uploader.previewGenerate();
+               // Check if we have variants in the returned HTML
+               var variantCount = $(data).find('.variant').length;
+               if (variantCount > 0) {
                    $('#show-hide-div').hide();
                } else {
                    $('#show-hide-div').show();
                }
+           },
+           error: function(){
+               console.log('Error updating SKU combinations');
            }
        });
     }
@@ -472,7 +470,10 @@
     AIZ.plugins.tagify();
 
     $(document).ready(function(){
-        update_sku();
+        // Only load variants if this is a variant product
+        @if($product->variant_product == 1)
+            update_sku();
+        @endif
 
         $('.remove-files').on('click', function(){
             $(this).parents('.col-md-4').remove();

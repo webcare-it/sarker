@@ -105,8 +105,10 @@
                         $stock = $product->stocks->where('variant', $str)->first();
                     }
                     
-                    // FIX: Ensure the string is properly formatted for field names (replace dots with underscores)
+                    // FIX: Ensure the string is properly formatted for field names (replace dots, hyphens, spaces with underscores)
                     $field_str = str_replace('.', '_', $str);
+                    $field_str = str_replace('-', '_', $field_str);
+                    $field_str = str_replace(' ', '_', $field_str);
                 @endphp
                 @if(strlen($str) > 0)
                 <tr class="variant">

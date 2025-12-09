@@ -11,6 +11,7 @@
                 @csrf
                 <input type="hidden" name="added_by" value="admin">
                 <input type="hidden" name="b_product_id" value="{{$product['id']}}">
+                <input type="hidden" name="is_variable" value="{{$product['is_variable']}}">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0 h6">{{translate('Product Information')}}</h5>

@@ -70,7 +70,7 @@
 					<input type="number" lang="en" name="price_{{ $field_str }}" value="{{ $variant['price'] ?? 0 }}" min="0" step="0.01" class="form-control" required>
 				</td>
 				<td>
-					<input type="text" name="sku_{{ $field_str }}" value="{{ $sku }}" class="form-control">
+					<input type="text" name="sku_{{ $field_str }}" value="" class="form-control">
 				</td>
 				<td>
 					<input type="number" lang="en" name="qty_{{ $field_str }}" value="10" min="0" step="1" class="form-control" required>
