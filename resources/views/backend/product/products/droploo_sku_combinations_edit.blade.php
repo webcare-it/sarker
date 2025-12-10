@@ -34,6 +34,7 @@
 			<tr class="variant">
 				<td>
 					<label for="" class="control-label">{{ $str }}</label>
+					<input type="hidden" name="variant_name_{{ $field_str }}" value="{{ $str }}">
 				</td>
 				<td>
 					<input type="number" lang="en" name="price_{{ $field_str }}" value="{{ $stock->price ?? 0 }}" min="0" step="0.01" class="form-control" required>

@@ -195,6 +195,7 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        //dd($request->all());
         $product = new Product;
         $product->b_product_id = $request->b_product_id;
         $product->name = $request->name;
@@ -447,45 +448,75 @@ class ProductController extends Controller
         }
         elseif($isDroplooProduct && $isVariableFromApi == 1) {
             // Handle Droploo variable products from product_images (is_variable == 1)
+            // For Droploo products with b_product_id, only update existing stocks (if any) - do NOT delete or recreate
             $product->variant_product = 1;
             
             // Get all variant fields from request
-            $variantFields = [];
+            $variantData = [];
             foreach($request->all() as $key => $value) {
-                if(strpos($key, 'price_') === 0) {
-                    $variantStr = str_replace('price_', '', $key);
-                    $variantFields[] = $variantStr;
+                // Collect variant names
+                if(strpos($key, 'variant_name_') === 0) {
+                    $fieldKey = str_replace('variant_name_', '', $key);
+                    $variantData[$fieldKey]['name'] = $value;
+                }
+                // Collect pricing data
+                elseif(strpos($key, 'price_') === 0) {
+                    $fieldKey = str_replace('price_', '', $key);
+                    $variantData[$fieldKey]['price'] = $value;
+                }
+                elseif(strpos($key, 'qty_') === 0) {
+                    $fieldKey = str_replace('qty_', '', $key);
+                    $variantData[$fieldKey]['qty'] = $value;
+                }
+                elseif(strpos($key, 'img_') === 0) {
+                    $fieldKey = str_replace('img_', '', $key);
+                    $variantData[$fieldKey]['image'] = $value;
+                }
+                elseif(strpos($key, 'wholesale_price_') === 0) {
+                    $fieldKey = str_replace('wholesale_price_', '', $key);
+                    $variantData[$fieldKey]['wholesale_price'] = $value;
+                }
+                elseif(strpos($key, 'sku_') === 0) {
+                    $fieldKey = str_replace('sku_', '', $key);
+                    $variantData[$fieldKey]['sku'] = $value;
                 }
             }
             
-            foreach($variantFields as $field_str) {
-                // Sanitize field name back to variant string (reverse the underscore substitution)
-                $str = str_replace('_', ' ', $field_str);
+            // Process each variant
+            foreach($variantData as $fieldKey => $data) {
+                // Use the provided variant name, or reconstruct from field key if not provided
+                $str = isset($data['name']) ? $data['name'] : str_replace('_', ' ', $fieldKey);
                 
-                $product_stock = ProductStock::where('product_id', $product->id)->where('variant', $str)->first();
-                if($product_stock == null){
-                    $product_stock = new ProductStock;
-                    $product_stock->product_id = $product->id;
-                }
-                
-                $product_stock->variant = $str;
-                $product_stock->price = $request['price_'.$field_str] ?? 0;
-                $product_stock->sku = $request['sku_'.$field_str] ?? '';
-                $product_stock->qty = $request['qty_'.$field_str] ?? 0;
-                $product_stock->image = $request['img_'.$field_str] ?? null;
+                $product_stock = new ProductStock;
+                $product_stock->product_id = $product->id;
+                $product_stock->variant = $data['name'];
+                $product_stock->sku = $data['sku'];
+                $product_stock->price = $data['price'];
+                $product_stock->qty = $data['qty'];
+                $product_stock->image = $data['image'];
                 
                 $product_stock->save();
             }
         }
         else{
             // For non-variable products or Droploo products with is_variable == 0
-            $product_stock              = new ProductStock;
-            $product_stock->product_id  = $product->id;
-            $product_stock->variant     = '';
-            $product_stock->price       = $request->unit_price;
-            $product_stock->sku         = $request->sku;
-            $product_stock->qty         = $request->current_stock ?? 0; // Handle null qty
-            $product_stock->save();
+            // Only create product_stocks if is_variable is not explicitly set to 0
+            $shouldCreateStocks = true;
+            
+            // Check if is_variable is explicitly 0 (meaning no stocks should be created)
+            if($request->has('is_variable') && (int)$request->is_variable === 0) {
+                $shouldCreateStocks = false;
+            }
+            
+            if($shouldCreateStocks) {
+                $product_stock              = new ProductStock;
+                $product_stock->product_id  = $product->id;
+                $product_stock->variant     = '';
+                $product_stock->price       = $request->unit_price;
+                $product_stock->sku         = $request->sku;
+                $product_stock->qty         = $request->current_stock ?? 0; // Handle null qty
+                $product_stock->save();
+            }
         }
         //combinations end
 
@@ -874,21 +905,16 @@ class ProductController extends Controller
 
         $combinations = Combinations::makeCombinations($options);
         
-        // Check if this is a Droploo variable product 
-        // A Droploo product is variable if it has a b_product_id AND has combinations
-        // A Droploo product is non-variable if it has a b_product_id BUT no combinations
-        $isDroplooVariableProduct = $product->b_product_id != null && count($combinations[0]) > 0;
-        $isDroplooNonVariableProduct = $product->b_product_id != null && count($combinations[0]) == 0;
+        // Check if this is a Droploo variable product (has b_product_id)
+        $isDroplooProduct = $product->b_product_id != null;
         
-        // FIX: Only delete existing stocks if we're actually going to recreate them
-        // For Droploo non-variable products, we should NOT delete existing stocks as they'll be updated in the else block
-        if((count($combinations[0]) > 0) || $isDroplooVariableProduct) {
+        // FIX: For variant products with b_product_id, skip deletion and only update
+        // For regular variant products (without b_product_id), delete and recreate stocks
+        if(count($combinations[0]) > 0 && !$isDroplooProduct){
+            $product->variant_product = 1;
             foreach ($product->stocks as $key => $stock) {
                 $stock->delete();
             }
-        }        
-        if(count($combinations[0]) > 0){
-            $product->variant_product = 1;
             foreach ($combinations as $key => $combination){
                 $str = '';
                 foreach ($combination as $key => $item){
@@ -922,55 +948,88 @@ class ProductController extends Controller
                 }
             }
         }
-        elseif($isDroplooVariableProduct) {
+        elseif($isDroplooProduct) {
             // Handle Droploo variable products from product_images
+            // For variant products with b_product_id, only update price, qty, and image - do NOT delete existing stocks
             $product->variant_product = 1;
             
             // Get all variant fields from request
-            $variantFields = [];
+            $variantData = [];
             foreach($request->all() as $key => $value) {
-                if(strpos($key, 'price_') === 0) {
-                    $variantStr = str_replace('price_', '', $key);
-                    $variantFields[] = $variantStr;
+                // Collect variant names
+                if(strpos($key, 'variant_name_') === 0) {
+                    $fieldKey = str_replace('variant_name_', '', $key);
+                    $variantData[$fieldKey]['name'] = $value;
+                }
+                // Collect pricing data
+                elseif(strpos($key, 'price_') === 0) {
+                    $fieldKey = str_replace('price_', '', $key);
+                    $variantData[$fieldKey]['price'] = $value;
+                }
+                elseif(strpos($key, 'qty_') === 0) {
+                    $fieldKey = str_replace('qty_', '', $key);
+                    $variantData[$fieldKey]['qty'] = $value;
+                }
+                elseif(strpos($key, 'img_') === 0) {
+                    $fieldKey = str_replace('img_', '', $key);
+                    $variantData[$fieldKey]['image'] = $value;
+                }
+                elseif(strpos($key, 'wholesale_price_') === 0) {
+                    $fieldKey = str_replace('wholesale_price_', '', $key);
+                    $variantData[$fieldKey]['wholesale_price'] = $value;
+                }
+                elseif(strpos($key, 'sku_') === 0) {
+                    $fieldKey = str_replace('sku_', '', $key);
+                    $variantData[$fieldKey]['sku'] = $value;
                 }
             }
             
-            foreach($variantFields as $field_str) {
-                // Sanitize field name back to variant string (reverse the underscore substitution)
-                $str = str_replace('_', ' ', $field_str);
+            // Process each variant
+            foreach($variantData as $fieldKey => $data) {
+                // Use the provided variant name, or reconstruct from field key if not provided
+                $str = isset($data['name']) ? $data['name'] : str_replace('_', ' ', $fieldKey);
                 
                 $product_stock = ProductStock::where('product_id', $product->id)->where('variant', $str)->first();
-                if($product_stock == null){
-                    $product_stock = new ProductStock;
-                    $product_stock->product_id = $product->id;
+                if($product_stock != null){
+                    // Only update price, qty, and image - do NOT delete or recreate
+                    $product_stock->price = $data['price'] ?? $product_stock->price;
+                    $product_stock->qty = $data['qty'] ?? $product_stock->qty;
+                    $product_stock->image = $data['image'] ?? $product_stock->image;
+                    
+                    // Add wholesale price if available
+                    if(isset($data['wholesale_price'])) {
+                        $product_stock->wholesale_price = $data['wholesale_price'];
+                    }
+                    
+                    $product_stock->save();
                 }
-                
-                $product_stock->variant = $str;
-                $product_stock->price = $request['price_'.$field_str] ?? 0;
-                $product_stock->sku = $request['sku_'.$field_str] ?? '';
-                $product_stock->qty = $request['qty_'.$field_str] ?? 0;
-                $product_stock->image = $request['img_'.$field_str] ?? null;
-                // Add wholesale price if available
-                if(isset($request['wholesale_price_'.$field_str])) {
-                    $product_stock->wholesale_price = $request['wholesale_price_'.$field_str];
-                }
-                
-                $product_stock->save();
             }
         }
         else{
             // For non-variable products, update the existing stock or create one if it doesn't exist
-            $product_stock = ProductStock::where('product_id', $product->id)->first();
-            if($product_stock == null){
-                $product_stock = new ProductStock;
-                $product_stock->product_id = $product->id;
+            // Only update/create product_stocks if is_variable is not explicitly set to 0
+            $shouldCreateStocks = true;
+            
+            // Check if is_variable is explicitly 0 (meaning no stocks should be created)
+            if($request->has('is_variable') && (int)$request->is_variable === 0) {
+                $shouldCreateStocks = false;
+                // Delete existing stocks if is_variable is 0
+                ProductStock::where('product_id', $product->id)->delete();
             }
-            $product_stock->variant = '';
-            $product_stock->price = $request->unit_price;
-            // Use sku_single if available, otherwise fallback to sku
-            $product_stock->sku = $request->sku_single ?? $request->sku ?? '';
-            $product_stock->qty = $request->current_stock ?? 0; // Handle null qty
-            $product_stock->save();
+            
+            if($shouldCreateStocks) {
+                $product_stock = ProductStock::where('product_id', $product->id)->first();
+                if($product_stock == null){
+                    $product_stock = new ProductStock;
+                    $product_stock->product_id = $product->id;
+                }
+                $product_stock->variant = '';
+                $product_stock->price = $request->unit_price;
+                // Use sku_single if available, otherwise fallback to sku
+                $product_stock->sku = $request->sku_single ?? $request->sku ?? '';
+                $product_stock->qty = $request->current_stock ?? 0; // Handle null qty
+                $product_stock->save();
+            }
         }
 
         $product->save();
