@@ -44,7 +44,7 @@
             <div class="col-md-3 ml-auto">
                 <label for="update_delivery_status">{{translate('Delivery Status')}}</label>
                 @if($delivery_status != 'delivered' && $delivery_status != 'cancelled' && $delivery_status != 'transfered')
-                    <select class="form-control aiz-selectpicker"  data-minimum-results-for-search="Infinity" id="update_delivery_status">
+                    <select class="form-control aiz-selectpicker" data-minimum-results-for-search="Infinity" id="update_delivery_status">
                         <option value="pending" @if ($delivery_status == 'pending') selected @endif>{{translate('Pending')}}</option>
                         <option value="confirmed" @if ($delivery_status == 'confirmed') selected @endif>{{translate('Confirmed')}}</option>
                         <option value="picked_up" @if ($delivery_status == 'picked_up') selected @endif>{{translate('Picked Up')}}</option>
@@ -71,10 +71,7 @@
             </div>
         </div>
         <div class="mb-3">
-            @php
-                                $removedXML = '<?xml version="1.0" encoding="UTF-8"?>';
-                            @endphp
-                            {!! str_replace($removedXML,"", QrCode::size(100)->generate($order->code)) !!}
+            {!! QrCode::size(100)->generate($order->code) !!}
         </div>
         <div class="row gutters-5">
             <div class="col text-center text-md-left">
@@ -288,16 +285,50 @@
         $('#update_payment_status').on('change', function(){
             var order_id = {{ $order->id }};
             var status = $('#update_payment_status').val();
-            $.post('{{ route('orders.update_payment_status') }}', {_token:'{{ @csrf_token() }}',order_id:order_id,status:status}, function(data){
-                AIZ.plugins.notify('success', '{{ translate('Payment status has been updated') }}');
+            $.post('{{ route('orders.update_payment_status') }}', {
+                _token:'{{ @csrf_token() }}',
+                order_id:order_id,
+                status:status
+            }, function(data){
+                // Handle both numeric response (1) and JSON response
+                if (data === 1 || (typeof data === 'object' && data !== null && (data.success === true || !data.hasOwnProperty('success')))) {
+                    AIZ.plugins.notify('success', '{{ translate('Payment status has been updated') }}');
+                } else if (typeof data === 'object' && data !== null && data.success === false) {
+                    AIZ.plugins.notify('danger', data.message || '{{ translate('Error updating payment status') }}');
+                } else {
+                    AIZ.plugins.notify('success', '{{ translate('Payment status has been updated') }}');
+                }
+            }).fail(function(xhr) {
+                var errorMsg = '{{ translate('Error updating payment status') }}';
+                if(xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                AIZ.plugins.notify('danger', errorMsg);
             });
         });
 
         $('#update_tracking_code').on('change', function(){
             var order_id = {{ $order->id }};
             var tracking_code = $('#update_tracking_code').val();
-            $.post('{{ route('orders.update_tracking_code') }}', {_token:'{{ @csrf_token() }}',order_id:order_id,tracking_code:tracking_code}, function(data){
-                AIZ.plugins.notify('success', '{{ translate('Order tracking code has been updated') }}');
+            $.post('{{ route('orders.update_tracking_code') }}', {
+                _token:'{{ @csrf_token() }}',
+                order_id:order_id,
+                tracking_code:tracking_code
+            }, function(data){
+                // Handle both numeric response (1) and JSON response
+                if (data === 1 || (typeof data === 'object' && data !== null && (data.success === true || !data.hasOwnProperty('success')))) {
+                    AIZ.plugins.notify('success', '{{ translate('Order tracking code has been updated') }}');
+                } else if (typeof data === 'object' && data !== null && data.success === false) {
+                    AIZ.plugins.notify('danger', data.message || '{{ translate('Error updating tracking code') }}');
+                } else {
+                    AIZ.plugins.notify('success', '{{ translate('Order tracking code has been updated') }}');
+                }
+            }).fail(function(xhr) {
+                var errorMsg = '{{ translate('Error updating tracking code') }}';
+                if(xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                AIZ.plugins.notify('danger', errorMsg);
             });
         });
     </script>
