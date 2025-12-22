@@ -249,13 +249,13 @@
                                 </a>
                             </li>
                         @endif
-                        @if(Auth::user()->user_type == 'admin' || in_array('5', json_decode(Auth::user()->staff->role->permissions)))
+                        {{-- @if(Auth::user()->user_type == 'admin' || in_array('5', json_decode(Auth::user()->staff->role->permissions)))
                             <li class="aiz-side-nav-item">
                                 <a href="{{ route('seller_orders.index') }}" class="aiz-side-nav-link {{ areActiveRoutes(['seller_orders.index', 'seller_orders.show'])}}">
                                     <span class="aiz-side-nav-text">{{translate('Seller Orders')}}</span>
                                 </a>
                             </li>
-                        @endif
+                        @endif --}}
                         {{-- @if(Auth::user()->user_type == 'admin' || in_array('6', json_decode(Auth::user()->staff->role->permissions)))
                             <li class="aiz-side-nav-item">
                                 <a href="{{ route('pick_up_point.order_index') }}" class="aiz-side-nav-link {{ areActiveRoutes(['pick_up_point.order_index','pick_up_point.order_show'])}}">
