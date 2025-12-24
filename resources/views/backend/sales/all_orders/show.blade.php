@@ -149,7 +149,17 @@
                             <td>{{ $key+1 }}</td>
                             <td>
                                 @if ($orderDetail->product != null && $orderDetail->product->auction_product == 0)
-                                    <a href="{{ route('product', $orderDetail->product->slug) }}" target="_blank"><img height="50" src="{{ uploaded_asset($orderDetail->product->thumbnail_img) }}"></a>
+                                    @php
+                                        $productImage = $orderDetail->product->thumbnail_img;
+                                        // Try to get variation-specific image from product stocks
+                                        if ($orderDetail->variation && $orderDetail->product->stocks) {
+                                            $stock = $orderDetail->product->stocks->where('variant', $orderDetail->variation)->first();
+                                            if ($stock && $stock->image) {
+                                                $productImage = $stock->image;
+                                            }
+                                        }
+                                    @endphp
+                                    <a href="{{ route('product', $orderDetail->product->slug) }}" target="_blank"><img height="50" src="{{ uploaded_asset($productImage) }}"></a>
                                 @elseif ($orderDetail->product != null && $orderDetail->product->auction_product == 1)
                                     <a href="{{ route('auction-product', $orderDetail->product->slug) }}" target="_blank"><img height="50" src="{{ uploaded_asset($orderDetail->product->thumbnail_img) }}"></a>
                                 @else
