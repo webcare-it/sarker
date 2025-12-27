@@ -386,7 +386,7 @@ class BusinessSettingsController extends Controller
                 if (gettype($type) == 'array') {
                     $lang = array_key_first($type);
                     $type = $type[$lang];
-                    $business_settings = BusinessSetting::where('type', $type)->where('lang', $lang)->first();
+                    $business_settings = BusinessSetting::where('type', $type)->first();
                 } else {
                     $business_settings = BusinessSetting::where('type', $type)->first();
                 }
