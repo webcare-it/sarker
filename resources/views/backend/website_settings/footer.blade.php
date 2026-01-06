@@ -224,7 +224,15 @@
                   <input type="text" class="form-control" placeholder="http://" name="linkedin_link" value="{{ get_setting('linkedin_link') }}">
                 </div>
 
-                <div class="card shadow-none bg-light">
+
+
+                <div class="text-right">
+                  <button type="submit" class="btn btn-primary">{{ translate('Update') }}</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card shadow-none bg-light">
                 <div class="card-header">
                     <h6 class="mb-0">{{ translate('Payment Methods Widget ') }}</h6>
                 </div>
@@ -243,12 +251,9 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            
                 <div class="text-right">
                   <button type="submit" class="btn btn-primary">{{ translate('Update') }}</button>
                 </div>
-              </div>
             </div>
         </div>
     </form>
