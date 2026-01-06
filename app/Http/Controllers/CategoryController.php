@@ -84,9 +84,6 @@ class CategoryController extends Controller
 
         $category->attributes()->sync($request->filtering_attributes);
 
-        $category_translation = CategoryTranslation::firstOrNew(['lang' => env('DEFAULT_LANGUAGE'), 'category_id' => $category->id]);
-        $category_translation->name = $request->name;
-        $category_translation->save();
 
         flash(translate('Category has been inserted successfully'))->success();
         return redirect()->route('categories.index');
@@ -180,9 +177,6 @@ class CategoryController extends Controller
 
         $category->attributes()->sync($request->filtering_attributes);
 
-        $category_translation = CategoryTranslation::firstOrNew(['lang' => $request->lang, 'category_id' => $category->id]);
-        $category_translation->name = $request->name;
-        $category_translation->save();
 
         Cache::forget('featured_categories');
         flash(translate('Category has been updated successfully'))->success();

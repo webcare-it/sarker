@@ -16,6 +16,7 @@ use App\Models\Wallet;
 use App\Models\CombinedOrder;
 use App\Models\User;
 use App\Models\Addon;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Utility\SendSMSUtility;
@@ -757,7 +758,7 @@ if (!function_exists('checkout_done')) {
                 NotificationUtility::sendOrderPlacedNotification($order);
                 calculateCommissionAffilationClubPoint($order);
             } catch (\Exception $e) {
-               
+
             }
         }
     }
@@ -828,53 +829,25 @@ if (!function_exists('addon_is_activated')) {
 }
 
 // Add unified helper function for generating order codes
+// Add unified helper function for generating order codes
 if (!function_exists('generate_order_code')) {
-    /**
-     * Generate an order code based on domain name and a 6-digit number
-     * Format: domain-000001
-     * 
-     * @param int|null $number The number to append (will be zero-padded to 6 digits). 
-     *                         If null, will auto-increment based on Order model count.
-     * @param string $modelClass The Eloquent model class to use for counting orders (when auto-incrementing)
-     * @return string
-     */
-    function generate_order_code($number = null, $modelClass = '\App\Models\Order')
+    function generate_order_code()
     {
-        // If no number provided, auto-increment based on model count
-        if ($number === null) {
-            try {
-                // Try to get count from the model
-                $number = $modelClass::count() + 1;
-            } catch (\Exception $e) {
-                // If there's an error (e.g., table doesn't exist yet), default to 1
-                $number = 1;
-            }
-        }
-        
-        // Get the APP_URL from environment
-        $appUrl = env('APP_URL', 'http://localhost');
-        
-        // Parse the URL to get the host
-        $parsedUrl = parse_url($appUrl);
-        $host = isset($parsedUrl['host']) ? $parsedUrl['host'] : 'localhost';
-        
-        // Remove www. prefix if present
+        // Get APP_URL
+        $appUrl = config('app.url');
+
+        $host = parse_url($appUrl, PHP_URL_HOST);
+
         $host = preg_replace('/^www\./', '', $host);
-        
-        // Extract domain name (remove TLD)
-        $domainParts = explode('.', $host);
-        if (count($domainParts) > 1) {
-            // Take the second to last part as the domain name (handles subdomains)
-            $domain = $domainParts[count($domainParts) - 2];
-        } else {
-            $domain = $host;
-        }
-        
-        // Format the number to 6 digits with leading zeros
-        $formattedNumber = str_pad($number, 4, '0', STR_PAD_LEFT);
-        
-        // Return the formatted code
-        return $domain . '-' . $formattedNumber;
+
+        $domainName = Str::before($host, '.');
+
+        $lastOrder = Order::latest('id')->first();
+        $nextId = $lastOrder ? $lastOrder->id + 1 : 1;
+
+        $orderNumber = str_pad($nextId, 6, '0', STR_PAD_LEFT);
+
+        return strtolower($domainName) . '-' . $orderNumber;
     }
 }
 
